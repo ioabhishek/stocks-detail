@@ -1,0 +1,8 @@
+name = "stocks-detail"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+[[ d1_databases ]]
+binding = "DB" # Use this in your Hono code
+database_name = "stocks"
+database_id = "bca9ada2-6e37-4b84-b2d6-fed56be40dc8"
