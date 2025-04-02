@@ -6,3 +6,8 @@ compatibility_date = "2025-04-01"
 binding = "DB" # Use this in your Hono code
 database_name = "stocks"
 database_id = "bca9ada2-6e37-4b84-b2d6-fed56be40dc8"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "b1e216fefba745059e5db1f87abd75d4"
+preview_id = "b1e216fefba745059e5db1f87abd75d4"
