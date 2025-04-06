@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { cors } from "hono/cors"
 
 type Env = {
   DB: D1Database // Cloudflare D1 Database
@@ -6,6 +7,8 @@ type Env = {
 }
 
 const app = new Hono<{ Bindings: Env }>() // ✅ Fix: Add type for env
+
+app.use("*", cors()) // Allow all origins by default
 
 app.post("/cache-stocks", async (c) => {
   try {
