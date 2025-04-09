@@ -1,28 +1,37 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { Redis } from "@upstash/redis/cloudflare"
 
-type Env = {
-  DB: D1Database // Cloudflare D1 Database
-  KV: KVNamespace // Cloudflare KV Store
+// Define the Stock type
+type Stock = {
+  instrument_token: number
+  exchange_token: string
+  tradingsymbol: string
+  name: string
+  instrument_type: string
+  exchange: string
 }
 
-const app = new Hono<{ Bindings: Env }>() // ✅ Fix: Add type for env
+const app = new Hono()
 
-app.use("*", cors()) // Allow all origins by default
+app.use("*", cors())
 
+// Use Cloudflare-compatible Upstash Redis
+const redis = new Redis({
+  url: "https://upright-grub-11809.upstash.io",
+  token: "AS4hAAIjcDExMDAxYWU3N2FmZjM0ZjJkYmUwY2U5MGE3OGRiMWM4NXAxMA",
+})
+
+// Cache all stocks - expects JSON body in request
 app.post("/cache-stocks", async (c) => {
   try {
-    const query = "SELECT * FROM stocks;"
-    const results = await c.env.DB.prepare(query).all() // Fetch all stocks
+    const stocks: Stock[] = await c.req.json()
 
-    if (!results || results.results.length === 0) {
-      return c.json({ error: "No stocks found" }, 404)
+    const pipeline = redis.pipeline()
+    for (const stock of stocks) {
+      pipeline.set(stock.tradingsymbol, stock, { ex: 3600 })
     }
-
-    // 1️⃣ Store all stock data in KV (cache for 1 hour)
-    await c.env.KV.put("all_stocks", JSON.stringify(results.results), {
-      expirationTtl: 3600,
-    })
+    await pipeline.exec()
 
     return c.json({ success: true, message: "Stock data cached successfully!" })
   } catch (error) {
@@ -36,6 +45,7 @@ app.post("/cache-stocks", async (c) => {
   }
 })
 
+// Get individual stock by tradingsymbol
 app.post("/stock", async (c) => {
   try {
     const { tradingsymbol } = await c.req.json()
@@ -43,24 +53,12 @@ app.post("/stock", async (c) => {
       return c.json({ error: "tradingsymbol is required" }, 400)
     }
 
-    // 1️⃣ Get all stocks from KV
-    const cachedStocks = await c.env.KV.get("all_stocks")
-    if (cachedStocks) {
-      const stocks = JSON.parse(cachedStocks)
-      const stock = stocks.find((s: any) => s.tradingsymbol === tradingsymbol)
-      if (stock) return c.json(stock)
-    }
-
-    // 2️⃣ If not found, fallback to D1 (optional)
-    const query = `
-      SELECT * FROM stocks WHERE tradingsymbol = ? LIMIT 1;`
-    const result = await c.env.DB.prepare(query).bind(tradingsymbol).first()
-
-    if (!result) {
+    const stock = await redis.get<Stock>(tradingsymbol)
+    if (!stock) {
       return c.json({ error: "Stock not found" }, 404)
     }
 
-    return c.json(result)
+    return c.json(stock)
   } catch (error) {
     return c.json(
       {

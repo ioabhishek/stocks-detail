@@ -5,6 +5,7 @@
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
+    "@upstash/redis": "^1.34.7",
     "hono": "^4.7.5"
   },
   "devDependencies": {
